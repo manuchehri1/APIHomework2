@@ -46,7 +46,7 @@ public class GitHubAPITests {
                                     contentType("application/json; charset=utf-8").
                               and().
                                     body("login",is("cucumber")).
-                                    body("name", is("Cucumber")).
+                                    body("name", equalToIgnoringCase("cucumber")).
                                     body("id",is(320565));
 
          // 2. way
@@ -113,7 +113,7 @@ public class GitHubAPITests {
                              when().
                                     get("/orgs/{org}").prettyPeek();
 
-        int public_repos = response1.body().path("public_repos");
+        int numOfRepositories = response1.body().path("public_repos");
 
 
         Response response2 = given().
@@ -122,14 +122,14 @@ public class GitHubAPITests {
                              when().
                                      get("/orgs/{org.}/repos");
                    response2.then().
-                                    body("size()",is(public_repos));
+                                    body("size()",is(numOfRepositories));
 
 
         //Object jSON = response2.body().prettyPeek();
 
-        List<Map<String ,?>> objects_num = response2.jsonPath().getList("");
-        System.out.println("objects_num.size() = " + objects_num.size());
-        assertEquals(public_repos,objects_num.size());
+        List<Map<String ,?>> numOfObjects = response2.jsonPath().getList("");
+        System.out.println("objects_num.size() = " + numOfObjects.size());
+        assertEquals(numOfRepositories,numOfObjects.size());
 
 
     }
@@ -155,6 +155,11 @@ public class GitHubAPITests {
         List<Object > node_id = response.body().path("node_id");
         Set<Object> unique_node_id = new TreeSet<>();
         unique_node_id.addAll(node_id);
+
+                        response.then().
+                                        assertThat().
+                                        body("size()",is(unique_id.size())).
+                                        body("size()",is(unique_node_id.size()));
 
 
 
@@ -182,19 +187,25 @@ public class GitHubAPITests {
     @Test
     @DisplayName("Repository owner information")
     public void repoOwnerInfoTest(){
-        Response response1 = given().pathParam("org.","cucumber").
-                                get("/orgs/{org.}");
+        Response response1 = given().pathParam("org","cucumber").
+                                get("/orgs/{org}");
 
         int id = response1.body().path("id");
         System.out.println("id = " + id);
 
-        Response response2 = given().pathParam("org.","cucumber").
-                                get("/orgs/{org.}/repos");
+        Response response2 =
+                given().
+                        queryParams("per_page",100).
+                        pathParam("org","cucumber").
+                        when().
+                        get("/orgs/{org}/repos").prettyPeek();
+        response2.then().
+                        assertThat().
+                        body("owner.id",everyItem(is(id)));
+        // second way
+        Set<Integer> IDs = new HashSet<>(response2.jsonPath().get("owner.id"));
+        assertEquals(id, IDs.iterator().next());
 
-        int owner_id = response2.body().path("owner.id[1]");
-        System.out.println("owner_id = " + owner_id);
-
-        assertTrue(id == owner_id);
     }
 
 
@@ -208,14 +219,15 @@ public class GitHubAPITests {
     @Test
     @DisplayName("Ascending order by full_name sort")
     public void sortingTest(){
-        Response response = given().pathParam("org.","cucumber").
+        Response response = given().pathParam("org","cucumber").
                                     queryParam("sort","full_name").
-                                    get("/orgs/{org.}/repos").prettyPeek();
-        List<String> original = response.body().path("name");
-        List<String > sorted = new ArrayList<>();
-        sorted.addAll(original);
-        Collections.sort(sorted);
-        assertEquals(original,sorted);
+                                    get("/orgs/{org}/repos").prettyPeek();
+
+        List<String> fullNames = response.body().path("full_name");
+        List<String > sortedFullNames = new ArrayList<>(fullNames);
+        Collections.sort(sortedFullNames);
+
+                            assertEquals(fullNames,sortedFullNames);
     }
 
     /**
@@ -234,15 +246,12 @@ public class GitHubAPITests {
                                  queryParam("sort","full_name").
                                  queryParam("direction","desc").
                                  get("/orgs/{org.}/repos");
-        List< String > names_original = response.body().path("name");
-        System.out.println("names_original = " + names_original);
 
+        List< String > fullNames = response.body().path("full_name");
+        List<String > sortedFullNames = new ArrayList<>(fullNames);
+        Collections.sort(sortedFullNames,Collections.reverseOrder());
 
-        List<String > name_sorted = new ArrayList<>();
-        name_sorted.addAll(names_original);
-        Collections.sort(name_sorted,Collections.reverseOrder());
-        System.out.println("sorted = " + name_sorted);
-        assertEquals(names_original,name_sorted);
+                        assertEquals(fullNames,sortedFullNames);
     }
 
 
@@ -256,15 +265,14 @@ public class GitHubAPITests {
     @DisplayName("Default sort")
     public void defaultSortTest(){
 
-        Response response = given().pathParam("org.","cucumber").
-                            get("/orgs/{org.}/repos");
+        Response response = given().pathParam("org","cucumber").
+                            get("/orgs/{org}/repos");
         
         List< String > create_at = response.body().path("created_at");
-        System.out.println("create_at = " + create_at);
-        List<String> sorted_create_at = new ArrayList<>();
-        sorted_create_at.addAll(create_at);
+        List<String> sorted_create_at = new ArrayList<>(create_at);
         Collections.sort(sorted_create_at);
-        System.out.println("sorted_create_at = " + sorted_create_at);
+
+
         assertEquals(create_at,sorted_create_at);
 
 
